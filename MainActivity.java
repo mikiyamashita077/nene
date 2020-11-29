@@ -3,6 +3,7 @@ package app.lightbox.winofsql.jp.sensorkadai10;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.ContentValues;
@@ -10,6 +11,8 @@ import android.content.DialogInterface;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
@@ -30,14 +33,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
     private ListView list;
     private SensorManager mSensorManager;
-    private TextView[] tv = new TextView[3];
+    private TextView[] tv = new TextView[4];
     SensorData sd;
     private DownloadTask dt;
     int count;
-    int savex = 0;
     float mean_x;
     private static final String TAG = "DbSample";
     SQLiteDatabase db;
@@ -49,7 +51,10 @@ public class MainActivity extends AppCompatActivity {
     private List<Map<String, String>> itmes;
     private int rowId = 0;
     private boolean delflg=false;
+    private Sensor mAccelerometer;
+    float sensorX, sensorY, sensorZ;
 
+    int[] savex = new int[3];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,9 +63,14 @@ public class MainActivity extends AppCompatActivity {
         tv[0] = (TextView)findViewById(R.id.data_x);
         tv[1] = (TextView)findViewById(R.id.data_y);
         tv[2] = (TextView)findViewById(R.id.data_z);
+        tv[3] = (TextView)findViewById(R.id.date);
         list = (ListView)findViewById(R.id.list);
+        @SuppressLint("SimpleDateFormat") final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        final Date date = new Date();
+        String strTime = "日時: " + dateFormat.format(date);
+        tv[3].setText(strTime);
+
         mSensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
-        sd = new SensorData(mSensorManager, tv);
         insbt = (Button)findViewById(R.id.ins_bt);
         insbt.setText("insert");
         delbt = (Button)findViewById(R.id.del_bt);
@@ -203,8 +213,9 @@ public class MainActivity extends AppCompatActivity {
                 (List<? extends Map<String, ?>>)itmes,
                 R.layout.rowdata,
                 new String[] { "date", "datax", "datay", "dataz"},
-                new int[] {R.id.data_x, R.id.data_y, R.id.data_z});
+                new int[] {R.id.date,R.id.data_x, R.id.data_y, R.id.data_z});
         list.setAdapter(simpleAdapter);
+        Log.d(TAG, String.valueOf(simpleAdapter));
     }
 
     public static void querry(SQLiteDatabase db, List items) {
@@ -226,18 +237,18 @@ public class MainActivity extends AppCompatActivity {
             dmap.put("id", String.valueOf(id));
             String date = cursor.getString(
                     cursor.getColumnIndexOrThrow(DataEntry.DATA_TIME));
-            dmap.put("name", date);
+            dmap.put("date", date);
             double datax = cursor.getDouble(
                     cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAX));
-            dmap.put("lat", String.valueOf(datax));
+            dmap.put("datx", String.valueOf(datax));
 
             double datay = cursor.getDouble(
                     cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAY));
-            dmap.put("lon", String.valueOf(datay));
+            dmap.put("datay", String.valueOf(datay));
 
             double dataz = cursor.getDouble(
                     cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAZ));
-            dmap.put("lon", String.valueOf(dataz));
+            dmap.put("dataz", String.valueOf(dataz));
             items.add(dmap);
             Log.d(TAG, dmap.get("id")+","+dmap.get("date")+","+dmap.get("datax")+","+dmap.get("datay")+","+dmap.get("dataz"));
         }
@@ -246,12 +257,12 @@ public class MainActivity extends AppCompatActivity {
 
     private void insert(){
         ContentValues values = new ContentValues();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Date date = new Date();
         values.put(DataEntry.DATA_TIME, dateFormat.format(date));
-        values.put(DataEntry.ACCELE_DATAX,36.82735459);
-        values.put(DataEntry.ACCELE_DATAY, 137.408397);
-        values.put(DataEntry.ACCELE_DATAZ, 137.408397);
+        values.put(DataEntry.ACCELE_DATAX, sensorX);
+        values.put(DataEntry.ACCELE_DATAY, sensorY);
+        values.put(DataEntry.ACCELE_DATAZ, sensorZ);
 
         long newRowId = db.insert(DataEntry.TABLE_NAME, null, values);
         Log.d(TAG, "newRowId:" + newRowId);
@@ -280,15 +291,65 @@ public class MainActivity extends AppCompatActivity {
   }*/
 
 
-
-    protected void onResume(){
+    @Override
+    protected void onResume() {
         super.onResume();
-        sd.startSensor();
+        // Listenerの登録
+        Sensor accel = mSensorManager.getDefaultSensor(
+                Sensor.TYPE_ACCELEROMETER);
+
+        mSensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL);
+
     }
+
+    // 解除するコードも入れる!
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Listenerを解除
+        mSensorManager.unregisterListener(this);
+    }
+
 
     @Override
-    protected void onPause(){
-        super.onPause();
-        sd.stopSensor();
+    public void onSensorChanged(SensorEvent event) {
+
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            for(int i = 0; i < 3; i++) {
+                switch (i){
+                    case 0:
+                        sensorX = event.values[i];
+                        String sx = String.valueOf(sensorX);
+                        tv[i].setText(sx);
+                        break;
+                    case 1:
+                        sensorY = event.values[i];
+                        String sy = String.valueOf(sensorY);
+                        tv[i].setText(sy);
+                        break;
+                    case 2:
+                        sensorZ = event.values[i];
+                        String sz = String.valueOf(sensorZ);
+                        tv[i].setText(sz);
+                        break;
+
+                }
+            }
+        }
     }
+
+        @Override
+        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+        }
+
+        public void startSensor(){
+            mSensorManager.registerListener(this,mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
+            Log.d(TAG,"start SensorEventListener");
+        }
+
+        public void stopSensor(){
+            mSensorManager.unregisterListener(this);
+            Log.d(TAG,"stop Listener");
+        }
 }
