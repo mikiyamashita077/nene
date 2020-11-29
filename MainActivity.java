@@ -218,26 +218,7 @@ public class MainActivity extends AppCompatActivity {
                 null
         );
 
-//            String[] projection = {
-//                    BaseColumns._ID,
-//                    DataEntry.COLUMN_NAME,
-//                    DataEntry.COLUMN_LAT,
-//                    DataEntry.COLUMN_LON
-//            };
-//            String selection = DataEntry.COLUMN_NAME + " = ?";
-//            String[] selectionArgs = { "魚津駅前" };
-//            String sortOrder =
-//                    DataEntry.COLUMN_NAME + "DESC";
-//
-//            Cursor cursor = db.query(
-//                    DataEntry.TABLE_NAME,
-//                    projection,
-//                    selection,
-//                    selectionArgs,
-//                    null,
-//                    null,
-//                    sortOrder
-//            );
+
         items.clear();
         while(cursor.moveToNext()){
             Map<String, String> dmap = new HashMap<>();
