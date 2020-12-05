@@ -1,4 +1,3 @@
-package app.lightbox.winofsql.jp.sensorkadai10;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.DialogFragment;
@@ -25,6 +24,7 @@ import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -47,14 +47,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private Button insbt;
     private Button delbt;
     private Button sendbt;
+    private Button delAllbt;
     SimpleAdapter simpleAdapter;
     private List<Map<String, String>> itmes;
     private int rowId = 0;
     private boolean delflg=false;
     private Sensor mAccelerometer;
-    float sensorX, sensorY, sensorZ;
+    float sensorX = 0;
+    float sensorY = 0;
+    float sensorZ = 0;
+    float senX = 0;
+    float senY = 0;
+    float senZ = 0;
+    float cnt = 0;
+    float heikin = 0;
 
-    int[] savex = new int[3];
+    //int[] savex = new int[3];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +83,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         insbt.setText("insert");
         delbt = (Button)findViewById(R.id.del_bt);
         delbt.setText("delete");
+        delAllbt = (Button)findViewById(R.id.delall_bt);
+        delbt.setText("delete ALL");
         sendbt = (Button)findViewById(R.id.send_bt);
         sendbt.setText("send");
         itmes = new ArrayList<>();
@@ -86,35 +96,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         sendbt.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Cursor cursor = db.query(DataEntry.TABLE_NAME,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
-                );
-                List<String> ulli = new ArrayList<>();
-                while(cursor.moveToNext()){
-                    int id = cursor.getInt(cursor.getColumnIndexOrThrow(DataEntry._ID));
+                upload(db);
 
-                    String date = cursor.getString(
-                            cursor.getColumnIndexOrThrow(DataEntry.DATA_TIME));
-                    double datax = cursor.getDouble(
-                            cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAX));
-
-                    double datay = cursor.getDouble(
-                            cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAY));
-                    double dataz = cursor.getDouble(
-                            cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAZ));
-
-                    String urlStr = "http://ipaddress/insert_test.php?date=" + date + "&datax=" + datax + "&datay=" + datay + "&dataz=" + dataz;
-                    Log.d("url:", urlStr);
-                    dt = new DownloadTask();
-                    dt.execute(urlStr);
-                }
-                cursor.close();
             }
         });
         insbt.setOnClickListener(new View.OnClickListener() {
@@ -148,11 +131,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             }
         });
+        //データの全削除
+        delAllbt.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                db.delete("sensor", null, null);
+            }
+        });
     }
 
     public static class DelDialogFragment extends DialogFragment {
         SQLiteDatabase db;
-        ListView lv;
+        ListView list;
         List items;
         SimpleAdapter simpleAdapter;
         String dataId = "";
@@ -173,7 +163,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                             int i = MainActivity.delete(dataId, db);
                             Log.d(TAG, "delete:" + i);
                             querry(db,items);
-                            simpleAdapter = (SimpleAdapter)lv.getAdapter();
+                            simpleAdapter = (SimpleAdapter)list.getAdapter();
                             simpleAdapter.notifyDataSetChanged();
                         }
                     })
@@ -194,11 +184,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         void setObject(
                 SQLiteDatabase db,
                 SimpleAdapter simpleAdapter,
-                ListView lv, List items){
+                ListView list, List items){
             this.db = db;
             this.simpleAdapter = simpleAdapter;
             this.items = items;
-            this.lv = lv;
+            this.list  = list;
         }
     }
 
@@ -255,12 +245,45 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         cursor.close();
     }
 
+    private  void upload(SQLiteDatabase db){
+        Cursor cursor = db.query(DataEntry.TABLE_NAME,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+        List<String> ullist = new ArrayList<>();
+        while(cursor.moveToNext()){
+            int id = cursor.getInt(cursor.getColumnIndexOrThrow(DataEntry._ID));
+
+            String date = cursor.getString(
+                    cursor.getColumnIndexOrThrow(DataEntry.DATA_TIME));
+            double datax = cursor.getDouble(
+                    cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAX));
+
+            double datay = cursor.getDouble(
+                    cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAY));
+            double dataz = cursor.getDouble(
+                    cursor.getColumnIndexOrThrow(DataEntry.ACCELE_DATAZ));
+
+            String urlStr = "http://ipaddress/insert_test.php?date=" + date + "&datax=" + datax + "&datay=" + datay + "&dataz=" + dataz;
+            Log.d("url:", urlStr);
+            ullist.add(urlStr);
+        }
+        dt = new DownloadTask();
+        String[] urls = ullist.toArray(new String[ullist.size()]);
+        dt.execute(urls);
+    }
+
     private void insert(){
         ContentValues values = new ContentValues();
-        @SuppressLint("SimpleDateFormat") SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Date date = new Date();
-        values.put(DataEntry.DATA_TIME, dateFormat.format(date));
-        values.put(DataEntry.ACCELE_DATAX, sensorX);
+        values.put(DataEntry.DATA_TIME, getNow());
+        heikin = heikinSensor(sensorX, (float) 5.0);
+        Log.d("heikin", String.valueOf(heikin));
+        values.put(DataEntry.ACCELE_DATAX, heikin);
         values.put(DataEntry.ACCELE_DATAY, sensorY);
         values.put(DataEntry.ACCELE_DATAZ, sensorZ);
 
@@ -313,24 +336,33 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     public void onSensorChanged(SensorEvent event) {
+        //float[] sensorX = new float[5];
+        //float[] sensorY = new float[5];
+        //float[] sensorZ = new float[5];
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             for(int i = 0; i < 3; i++) {
                 switch (i){
                     case 0:
-                        sensorX = event.values[i];
+                        sensorX = event.values[0];
+                        senX++;
+                        cnt++;
                         String sx = String.valueOf(sensorX);
-                        tv[i].setText(sx);
+                        tv[0].setText(sx);
                         break;
                     case 1:
-                        sensorY = event.values[i];
+                        sensorY = event.values[1];
+                        senY++;
+                        cnt++;
                         String sy = String.valueOf(sensorY);
-                        tv[i].setText(sy);
+                        tv[1].setText(sy);
                         break;
                     case 2:
-                        sensorZ = event.values[i];
+                        sensorZ = event.values[2];
+                        senZ++;
+                        cnt++;
                         String sz = String.valueOf(sensorZ);
-                        tv[i].setText(sz);
+                        tv[2].setText(sz);
                         break;
 
                 }
@@ -338,18 +370,30 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-        @Override
-        public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    public float heikinSensor(float sen, float cnt){
+        heikin = sen / cnt;
+        Log.d("heikinSensor["+ cnt+ "]", String.valueOf(heikin));
+        return heikin;
+    }
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
-        }
+    }
 
-        public void startSensor(){
-            mSensorManager.registerListener(this,mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
-            Log.d(TAG,"start SensorEventListener");
-        }
+    public void startSensor(){
+        mSensorManager.registerListener(this,mAccelerometer,SensorManager.SENSOR_DELAY_NORMAL);
+        Log.d(TAG,"start SensorEventListener");
+    }
 
-        public void stopSensor(){
-            mSensorManager.unregisterListener(this);
-            Log.d(TAG,"stop Listener");
-        }
+    public void stopSensor(){
+        mSensorManager.unregisterListener(this);
+        Log.d(TAG,"stop Listener");
+    }
+
+    private String getNow(){
+        // set the format to sql date time
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-ddHH:mm:ss");
+        Date date = new Date();
+        return dateFormat.format(date);
+    }
 }
