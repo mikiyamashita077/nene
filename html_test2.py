@@ -53,12 +53,12 @@ def uploads_file():
             # アップロード後のページに転送
             #return redirect(url_for('output', filename=filename))
             # 危険な文字を削除（サニタイズ処理）
-            video = secure_filename(video.filename)
-            print(video)
+            video_name = secure_filename(video.filename)
+            print(video_name)
             # ファイルの保存
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], video))
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], video_name))
             # アップロード後のページに転送
-            return redirect(url_for('output',filename=filename,video=video))
+            return redirect(url_for('output',filename=filename,video=video_name))
     return '''
     <!doctype html>
     <html>
