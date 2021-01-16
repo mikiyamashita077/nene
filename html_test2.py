@@ -28,7 +28,7 @@ def inject_now():
     return {'now':  utcTime.strftime('%Y-%m-%d %H:%M:%S') }
 
 # ファイルを受け取る方法の指定
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])#, 'POST'])
 def uploads_file():
     # リクエストがポストかどうかの判別
     if request.method == 'POST':
@@ -72,25 +72,31 @@ def uploads_file():
             <h1>
                 ファイルをアップロード
             </h1>
-            <form method="post" enctype="multipart/form-data">
-            <p><input type="file" name="file">
-            <p><input type="file" name="video">
+            <form action="/" method="post" enctype="multipart/form-data">
+            <p><input type="file" name="file"></p>
+            <p><input type="file" name="video"></p>
             <input type="submit" value="Upload">
             </form>
         </body>
 '''
-@app.route('/<filename>/<video>', methods=['GET','POST'])#, 'POST'])
-def output(filename, video):
-    filename = secure_filename(filename)
-    filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)#filename=os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        
-    video = secure_filename(video)
-    video = os.path.join(app.config['UPLOAD_FOLDER'], video)#video=os.path.join(app.config['UPLOAD_FOLDER'], filenames)
+@app.route('/', methods=['POST'])#'GET','POST'])#, 'POST'])
+def output():
+    file = request.files.get('file')#file = secure_filename(filename)
+    filename = secure_filename(file.filename)#file = os.path.join(app.config['UPLOAD_FOLDER'], file)#filename=os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    filepath = 'img/' + filename
+    print(filepath)
+    file.save(filepath)
+    v = request.files.get('video')
+    video = secure_filename(v.filename)
+    videopath = 'img/' + video#video_name = os.path.join(app.config['UPLOAD_FOLDER'], video)#video=os.path.join(app.config['UPLOAD_FOLDER'], filenames)
+    print(videopath)
+    v.save(videopath)
+
     file_name = "sample.txt"
     with open(file_name, mode="r", encoding="cp932") as f:
             text = f.read()
     
-    return render_template('output.html', filename=filename, video=video,now=inject_now(), num=text,title='出力ページ', method=request.method)
+    return render_template('output.html', filename=filepath, video=videopath,now=inject_now(), num=text,title='出力ページ', method=request.method)
 
 
 if __name__ == '__main__':
